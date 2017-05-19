@@ -35,7 +35,7 @@ OAUTH_ST1 = {'client_id': CLIENT_ID,
              'response_type': 'code',
              # the 'read' scope is outdated and should be replaced by
              # 'read_all' for newly created security profiles
-             'scope': 'clouddrive:read clouddrive:write',
+             'scope': 'clouddrive:read_all clouddrive:write',
              REDIRECT_URI_KEY: None}
 
 OAUTH_ST2 = {'grant_type': 'authorization_code',
@@ -50,9 +50,11 @@ OAUTH_REF = {'grant_type': REFRESH_TOKEN_KEY,
              'client_secret': CLIENT_SECRET,
              REDIRECT_URI_KEY: None}
 
+OAUTH_FILENAME = "oauth.json"
 
 def pp(string):
     return json.dumps(json.loads(string), indent=4, sort_keys=True)
+
 
 def ppo(obj):
     return json.dumps(obj, indent=4, sort_keys=True)
@@ -74,20 +76,21 @@ class OauthHandler(webapp2.RequestHandler):
             code = self.request.GET['code']
             scope = self.request.GET['scope']
         except KeyError:
-            params = OAUTH_ST1
+            params = dict(OAUTH_ST1)
             params[REDIRECT_URI_KEY] = self.request.host_url
-            oauth_step1_url = AMAZON_OA_LOGIN_URL + '?' + urllib.urlencode(OAUTH_ST1)
+            oauth_step1_url = AMAZON_OA_LOGIN_URL + '?' + urllib.urlencode(params)
             return webapp2.redirect(oauth_step1_url)
 
-        # user has returned after oauth
+        # user has returned after authentication
         if code and scope:
-            params = OAUTH_ST2
+            params = dict(OAUTH_ST2)
             params['code'] = code
             params[REDIRECT_URI_KEY] = self.request.host_url
 
             resp = urllib.urlopen(AMAZON_OA_TOKEN_URL, urllib.urlencode(params))
 
-            self.response.headers.add('Content-Disposition', 'attachment; filename="oauth_data"')
+            self.response.headers.add('Content-Disposition', 'attachment; filename="%s"'
+                                      % OAUTH_FILENAME)
             self.response.write(pp(resp.read()))
             return
 
@@ -101,7 +104,7 @@ class OauthHandler(webapp2.RequestHandler):
             self.response.write(json.dumps(err_resp, sort_keys=True))
             return
 
-        params = OAUTH_REF
+        params = dict(OAUTH_REF)
         params[REFRESH_TOKEN_KEY] = ref
         params[REDIRECT_URI_KEY] = self.request.host_url
         try:
